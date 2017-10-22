@@ -43,10 +43,10 @@ public class Pin {
         arrivalTime = new Date();
     }
 
-    public boolean isInPlace(double pLatitude, double pLongitude) {
+    public boolean isInPlace(double pLatitude, double pLongitude, int pDistance) {
         float[] results = new float[3];
         Location.distanceBetween(pLatitude, pLongitude, latitude, longitude, results);
-        return (results[0] < 2 * 1000); //半径2キロ以内
+        return (results[0] < pDistance);
     }
 
     public double getLatitude() {
@@ -79,34 +79,6 @@ public class Pin {
 
     public Date getArrivalTime() {
         return arrivalTime;
-    }
-
-    //動かないのでボツ
-    public String getDiff(double pLatitude, double pLongitude) {
-        float[] results = new float[3];
-        Location.distanceBetween(pLatitude, pLongitude, latitude, longitude, results);
-        double degree = Math.toDegrees(results[2]) - 11.75 + 90d;
-        int dp = (int)(degree / 22.5);
-        String direction;
-        switch (dp) {
-            case 1: direction = "北北東"; break;
-            case 2: direction = "北東"; break;
-            case 3: direction = "東北東"; break;
-            case 4: direction = "東"; break;
-            case 5: direction = "東南東"; break;
-            case 6: direction = "南東"; break;
-            case 7: direction = "南南東"; break;
-            case 8: direction = "南"; break;
-            case 9: direction = "南南西"; break;
-            case 10: direction = "南西"; break;
-            case 11: direction = "西南西"; break;
-            case 12: direction = "西"; break;
-            case 13: direction = "西北西"; break;
-            case 14: direction = "北西"; break;
-            case 15: direction = "北北西"; break;
-            default: direction = "北"; break;
-        }
-        return String.format("%s%2$.1fkm地点", direction, results[0] / 1000d);
     }
 
     public String getTweet() {

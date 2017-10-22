@@ -31,9 +31,7 @@ public class MyLocationService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        long span = 1000 * 60 * 3; //3分ごとにチェック
-        //span = 1000 * 5; //[テスト]5秒ごとにチェック
-        int distance = 10;   //最小距離間隔[m]
+        long interval = MainActivity.getInterval();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
@@ -48,7 +46,7 @@ public class MyLocationService extends Service {
         if(myLocationListener == null) {
             myLocationListener = new MyLocationListener();
         }
-        MainActivity.locationManager.requestLocationUpdates(locationManager.GPS_PROVIDER, span, distance, myLocationListener);
+        MainActivity.locationManager.requestLocationUpdates(locationManager.GPS_PROVIDER, interval, 0, myLocationListener);
         return mBinder;
     }
 

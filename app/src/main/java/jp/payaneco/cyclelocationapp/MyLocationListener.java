@@ -84,10 +84,11 @@ public class MyLocationListener implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
+        int distance = MainActivity.getDistance();
         update = new Date();
         for(Pin pin: pinList) {
             if(pin.isArrived()) continue;
-            if(!pin.isInPlace(location.getLatitude(), location.getLongitude())) continue;
+            if(!pin.isInPlace(location.getLatitude(), location.getLongitude(), distance)) continue;
             //現在地変更
             currentPin = pin;
             //フラグ変更

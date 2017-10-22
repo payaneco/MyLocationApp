@@ -9,12 +9,17 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import java.text.DateFormat;
@@ -25,24 +30,14 @@ import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
     public static LocationManager locationManager;
+    private static int interval;
+    private static int distance;
 
     private ServiceConnection mConnection;
     private MyLocationService locationService;
     private SharedPreferences sharedPreferences;
     private boolean mBound = false;
     private Pin currentPin;
-
-    /*
-    //ツイートしようとして失敗した残骸その1
-    private final String API_KEY = "XXX";
-    private final String API_SECRET = "XXX";
-
-    private String accessKey;
-    private String accessSecret;
-
-    private AsyncTwitter mTwitter;
-    private RequestToken mReqToken;
-    */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +47,9 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        interval = sharedPreferences.getInt("INTERVAL", 60);
+        distance = sharedPreferences.getInt("DISTANCE", 500);
 
         final ServiceConnection mConnection = new ServiceConnection() {
 
@@ -69,33 +67,22 @@ public class MainActivity extends AppCompatActivity {
                 mBound = false;
             }
         };
-
-        /*
-        //Twitter4jでツイートしようとして失敗した残骸その2
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        getAccessToken();
-        if(accessKey != null) {
-            mTwitter = new AsyncTwitterFactory().getInstance();
-            mTwitter.addListener(mListener);
-            mTwitter.setOAuthConsumer(API_KEY, API_SECRET);
-            mTwitter.setOAuthAccessToken(new AccessToken(accessKey, accessSecret));
-            mTwitter.updateStatus("ねむねむ");
-        }
-        */
-
-        //アプリケーションにバインドされたサービス開始
-        Intent i = new Intent(MainActivity.this, MyLocationService.class);
-        stopService(i);
-        bindService(i, mConnection, Context.BIND_AUTO_CREATE);
+        bindService(mConnection);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                //Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG).setAction("Action", null).show();
                 showLocationData();
             }
         });
+    }
+
+    private void bindService(ServiceConnection mConnection) {
+        //アプリケーションにバインドされたサービス開始
+        Intent i = new Intent(MainActivity.this, MyLocationService.class);
+        stopService(i);
+        bindService(i, mConnection, Context.BIND_AUTO_CREATE);
     }
 
     //アクティビティへの文字列表示処理
@@ -133,58 +120,6 @@ public class MainActivity extends AppCompatActivity {
         currentPin = pin;
     }
 
-    /*
-    //ツイートしようとして失敗した残骸その3
-    private void getAccessToken() {
-        //アクセストークンが永続記憶域にあれば読み出す
-        accessKey = sharedPreferences.getString("ACCESS_KEY", "none");
-        accessSecret = sharedPreferences.getString("ACCESS_SECRET", "none");
-
-        if(!accessKey.equals("none")) return;
-
-        mTwitter = new AsyncTwitterFactory().getInstance();
-        mTwitter.addListener(mListener);
-        mTwitter.setOAuthConsumer(API_KEY, API_SECRET);
-        mTwitter.getOAuthRequestTokenAsync("twittercallback://callback");
-    }
-
-    private final TwitterListener mListener = new TwitterAdapter() {
-        @Override
-        public void updatedStatus(Status status) {
-            Log.d("updatedStatus", "Status ID:" + status.getId());
-        }
-        @Override
-        public void gotOAuthRequestToken(RequestToken token) {
-            mReqToken = token;
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(mReqToken.getAuthorizationURL()));
-            startActivity(intent);
-        }
-
-        @Override
-        public void gotOAuthAccessToken(AccessToken token) {
-            //token.getToken()とtoken.getTokenSecret()を保存する
-        }
-
-    };
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        //ブラウザからのコールバックで呼ばれる
-        final Uri uri = intent.getData();
-        final String verifier = uri.getQueryParameter("oauth_verifier");
-        if (verifier != null) {
-            mTwitter.getOAuthAccessTokenAsync(mReqToken, verifier);
-            accessKey = mReqToken.getToken();
-            accessSecret = mReqToken.getTokenSecret();
-            //アクセストークンを永続記憶域に保存
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putString("ACCESS_KEY", accessKey);
-            editor.putString("ACCESS_SECRET", accessSecret);
-            editor.commit();
-        }
-    }
-    */
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -201,10 +136,71 @@ public class MainActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
+            showPopupSettings();
             return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
 
+    private void showPopupSettings() {
+        PopupWindow pop = new PopupWindow(this);
+        //レイアウト設定
+        final View popupView = getLayoutInflater().inflate(R.layout.popup_settings, null);
+        final EditText editInterval = (EditText)popupView.findViewById(R.id.editInterval);
+        editInterval.setText(String.valueOf(interval));
+        final EditText editDistance = (EditText)popupView.findViewById(R.id.editDistance);
+        editDistance.setText(String.valueOf(distance));
+        pop.setContentView(popupView);
+        //タップ時に他のViewでキャッチされないための設定
+        pop.setOutsideTouchable(true);
+        pop.setFocusable(true);
+        //画面閉じたら設定保存
+        pop.setOnDismissListener(new PopupWindow.OnDismissListener() {
+            @Override
+            public void onDismiss() {
+                int interval = getSettingsValue(popupView.findViewById(R.id.editInterval));
+                setInterval(interval);
+                int distance = getSettingsValue(popupView.findViewById(R.id.editDistance));
+                setDistance(distance);
+                //bindService(mConnection); //エラーになるのでいったん頑張らない
+                Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).setAction("Action", null).show();
+            }
+        });
+        pop.showAtLocation(findViewById(R.id.nameView), Gravity.CENTER, 0, 0);
+    }
+
+    //EditTextから数値を取得する。無効な値の場合はMIN_VALUEを返す
+    private int getSettingsValue(View view) {
+        EditText editText = (EditText)view;
+        String value = editText.getText().toString();
+        if(!value.matches("\\d+")) {
+            return Integer.MIN_VALUE;
+        }
+        return Integer.parseInt(value);
+    }
+
+    public static int getInterval() {
+        return interval;
+    }
+
+    public void setInterval(int interval) {
+        if(interval <= 0) return;
+        this.interval = interval;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt("INTERVAL", interval);
+        editor.commit();
+    }
+
+    public static int getDistance() {
+        return distance;
+    }
+
+    public void setDistance(int distance) {
+        if(distance <= 0) return;
+        this.distance = distance;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt("DISTANCE", distance);
+        editor.commit();
+    }
 }
