@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity {
         df.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
-        updateView.setText(df.format(now) + "GPS稼働");
+        updateView.setText(String.format("%sGPS稼働", df.format(now)));
         if(myLocationListener.getCurrentPin() == null) return;
         if(myLocationListener.getCurrentPin().equals(currentPin)) return;
         Pin pin = myLocationListener.getCurrentPin();
@@ -106,10 +106,10 @@ public class MainActivity extends AppCompatActivity {
         distanceView.setText(String.format("%1$.1fkm走破", pin.getDistance()));
         //時点
         TextView currentView = (TextView) findViewById(R.id.currentView);
-        currentView.setText(df.format(pin.getArrivalTime()) + "到着");
+        currentView.setText(String.format("%s到着", df.format(pin.getArrivalTime())));
         //目標
         TextView targetView = (TextView) findViewById(R.id.targetView);
-        targetView.setText(pin.getTargetText() + "目標");
+        targetView.setText(String.format("%s目標", pin.getTargetText()));
         //貯金
         TextView savingView = (TextView) findViewById(R.id.savingView);
         savingView.setText(pin.getSavingText());
@@ -186,10 +186,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void setInterval(int interval) {
         if(interval <= 0) return;
-        this.interval = interval;
+        MainActivity.interval = interval;
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt("INTERVAL", interval);
-        editor.commit();
+        editor.apply();
     }
 
     public static int getDistance() {
@@ -198,9 +198,9 @@ public class MainActivity extends AppCompatActivity {
 
     public void setDistance(int distance) {
         if(distance <= 0) return;
-        this.distance = distance;
+        MainActivity.distance = distance;
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt("DISTANCE", distance);
-        editor.commit();
+        editor.apply();
     }
 }
