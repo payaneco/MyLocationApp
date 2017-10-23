@@ -22,6 +22,7 @@ public class Pin {
     private String name;
     private int hour;
     private int minute;
+    private Pin nextPin;
 
     public Pin(double latitude, double longitude, double distance, String name, int hour, int minute)
     {
@@ -32,6 +33,11 @@ public class Pin {
         this.name = name;
         this.hour = hour;
         this.minute = minute;
+    }
+
+    public Pin(double latitude, double longitude, double distance, String name, int hour, int minute, Pin nextPin) {
+        this(latitude, longitude, distance, name, hour, minute);
+        this.nextPin = nextPin;
     }
 
     public boolean isArrived() {
@@ -90,5 +96,31 @@ public class Pin {
         sb.append(getSavingText()).append("！").append("\r\n");
         sb.append(String.format("http://maps.google.com/maps?q=%1$.4f,%2$.4f", latitude, longitude));
         return sb.toString();
+    }
+
+    public Pin getNextPin() {
+        return nextPin;
+    }
+
+    public void setNextPin(Pin nextPin) {
+        this.nextPin = nextPin;
+    }
+
+    public String getNextNameText() {
+        if (nextPin == null) {
+            return "";
+        }
+        return nextPin.getName();
+    }
+
+    public float getNextTargetText(double nextLatitude, double nextLongitude) {
+        if (nextPin == null) {
+            return Float.MIN_VALUE;
+        }
+        double pLatitude = nextPin.latitude;
+        double pLongitude = nextPin.longitude;
+        float[] results = new float[3];
+        Location.distanceBetween(pLatitude, pLongitude, nextLatitude, nextLongitude, results);
+        return results[0] / 1000f;
     }
 }

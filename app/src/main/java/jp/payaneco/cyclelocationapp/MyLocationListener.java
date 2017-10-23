@@ -15,7 +15,8 @@ public class MyLocationListener implements LocationListener {
     private Date update;            //GPSの最終更新日時
     private ArrayList<Pin> pinList;
     private Pin currentPin;         //最後に表示したピン
-    //private Twitter mTwitter;
+    private double currentLatitude;
+    private double currentLongitude;
 
     public MyLocationListener() {
         pinList = new ArrayList<Pin>();
@@ -80,11 +81,17 @@ public class MyLocationListener implements LocationListener {
         pinList.add(new Pin(34.7397, 135.6391, 515, "四條畷(なわて)市役所", 22, 41));
         pinList.add(new Pin(34.7128, 135.5464, 525, "関目駅", 23, 13));
         pinList.add(new Pin(34.6980, 135.5007, 530.7, "梅田新道", 23, 30));
+
+        for (int i = 0; i < pinList.size() - 1; i++) {
+            pinList.get(i).setNextPin(pinList.get(i + 1));
+        }
     }
 
     @Override
     public void onLocationChanged(Location location) {
         int distance = MainActivity.getDistance();
+        currentLatitude = location.getLatitude();
+        currentLongitude = location.getLongitude();
         update = new Date();
         for(Pin pin: pinList) {
             if(pin.isArrived()) continue;
@@ -117,5 +124,13 @@ public class MyLocationListener implements LocationListener {
 
     public Pin getCurrentPin() {
         return currentPin;
+    }
+
+    public double getCurrentLatitude() {
+        return currentLatitude;
+    }
+
+    public double getCurrentLongitude() {
+        return currentLongitude;
     }
 }

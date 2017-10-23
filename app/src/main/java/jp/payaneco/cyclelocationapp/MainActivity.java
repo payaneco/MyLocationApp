@@ -95,9 +95,23 @@ public class MainActivity extends AppCompatActivity {
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
         updateView.setText(String.format("%sGPS稼働", df.format(now)));
-        if(myLocationListener.getCurrentPin() == null) return;
-        if(myLocationListener.getCurrentPin().equals(currentPin)) return;
         Pin pin = myLocationListener.getCurrentPin();
+        if (pin == null) return;
+        //次
+        TextView nextNameView = (TextView) findViewById(R.id.nextNameView);
+        if (pin.getNextNameText().isEmpty()) {
+            nextNameView.setText("");
+        } else {
+            nextNameView.setText(String.format("Next: %s", pin.getNextNameText()));
+        }
+        TextView nextTargetView = (TextView) findViewById(R.id.nextTargetView);
+        float nextTarget = pin.getNextTargetText(myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
+        if (nextTarget < 0) {
+            nextTargetView.setText("");
+        } else {
+            nextTargetView.setText(String.format("直線距離で%1$.1fkm", nextTarget));
+        }
+        if (pin.equals(currentPin)) return;
         //地名
         TextView nameView = (TextView) findViewById(R.id.nameView);
         nameView.setText(pin.getName());
@@ -113,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
         //貯金
         TextView savingView = (TextView) findViewById(R.id.savingView);
         savingView.setText(pin.getSavingText());
+
         //ツイート
         String url = String.format("https://twitter.com/share?text=%s", pin.getTweet());
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
