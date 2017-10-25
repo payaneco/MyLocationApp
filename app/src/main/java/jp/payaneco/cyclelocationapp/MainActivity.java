@@ -21,7 +21,10 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -29,6 +32,8 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
+    private final int REQUEST_PICK_GPX = 1;
+
     public static LocationManager locationManager;
     private static int interval;
     private static int distance;
@@ -46,10 +51,7 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        interval = sharedPreferences.getInt("INTERVAL", 60);
-        distance = sharedPreferences.getInt("DISTANCE", 500);
+        initProperties();
 
         final ServiceConnection mConnection = new ServiceConnection() {
 
@@ -76,6 +78,13 @@ public class MainActivity extends AppCompatActivity {
                 showLocationData();
             }
         });
+    }
+
+    private void initProperties() {
+        locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        interval = sharedPreferences.getInt("INTERVAL", 60);
+        distance = sharedPreferences.getInt("DISTANCE", 500);
     }
 
     private void bindService(ServiceConnection mConnection) {
@@ -153,6 +162,8 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             showPopupSettings();
             return true;
+        } else if (id == R.id.action_gpx) {
+            loadGpx();
         }
 
         return super.onOptionsItemSelected(item);
@@ -183,6 +194,25 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         pop.showAtLocation(findViewById(R.id.nameView), Gravity.CENTER, 0, 0);
+    }
+
+    private void loadGpx() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("file/*");
+        startActivityForResult(intent, REQUEST_PICK_GPX);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        try {
+            if (requestCode == REQUEST_PICK_GPX && resultCode == RESULT_OK) {
+                String filePath = data.getDataString().replace("file://", "");
+                String decodedfilePath = URLDecoder.decode(filePath, "utf-8");
+                Toast.makeText(this, decodedfilePath, Toast.LENGTH_SHORT).show();
+            }
+        } catch (UnsupportedEncodingException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     //EditTextから数値を取得する。無効な値の場合はMIN_VALUEを返す
