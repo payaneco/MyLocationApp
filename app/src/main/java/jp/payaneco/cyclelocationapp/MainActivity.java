@@ -14,6 +14,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Xml;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -23,8 +24,15 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -198,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadGpx() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("file/*");
+        intent.setType("*/*");
         startActivityForResult(intent, REQUEST_PICK_GPX);
     }
 
@@ -206,13 +214,64 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         try {
             if (requestCode == REQUEST_PICK_GPX && resultCode == RESULT_OK) {
-                String filePath = data.getDataString().replace("file://", "");
-                String decodedfilePath = URLDecoder.decode(filePath, "utf-8");
-                Toast.makeText(this, decodedfilePath, Toast.LENGTH_SHORT).show();
+                Uri uri = data.getData();
+                parseXml(uri);
             }
         } catch (UnsupportedEncodingException e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        } catch (FileNotFoundException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        } catch (XmlPullParserException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        } catch (IOException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
         }
+    }
+
+    private void parseXml(Uri uri) throws IOException, XmlPullParserException {
+        InputStream inputStream = getContentResolver().openInputStream(uri);
+        String text = convertInputStreamToString(inputStream);
+        XmlPullParser parser = Xml.newPullParser();
+        parser.setInput(new StringReader(text));
+        int eventType = parser.getEventType();
+        String s = "";
+        while (eventType != XmlPullParser.END_DOCUMENT) {
+            switch (eventType) {
+                case XmlPullParser.START_TAG:
+                    break;
+                case XmlPullParser.TEXT:
+                    if (!parser.getText().isEmpty()) {
+                        s = parser.getText();
+                    }
+                    break;
+                case XmlPullParser.END_TAG:
+                    break;
+            }
+            eventType = parser.next();
+        }
+    }
+
+    private static String convertInputStreamToString(InputStream is) throws IOException {
+        InputStreamReader reader = new InputStreamReader(is);
+        StringBuilder builder = new StringBuilder();
+        char[] buffer = new char[512];
+        int read;
+        while (0 <= (read = reader.read(buffer))) {
+            builder.append(buffer, 0, read);
+        }
+        return rmBom(builder.toString());
+    }
+
+    private static String rmBom(String xmlString) {
+        if (Integer.toHexString(xmlString.charAt(0)).equals("feff")) {
+            // 先頭一文字を除く
+            xmlString = xmlString.substring(1);
+        }
+        return xmlString;
     }
 
     //EditTextから数値を取得する。無効な値の場合はMIN_VALUEを返す
