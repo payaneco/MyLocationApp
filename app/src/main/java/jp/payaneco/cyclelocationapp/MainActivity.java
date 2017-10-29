@@ -1,17 +1,22 @@
 package jp.payaneco.cyclelocationapp;
 
+import android.Manifest;
+import android.app.TimePickerDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Xml;
@@ -22,6 +27,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+import android.widget.TimePicker;
 import android.widget.Toast;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -34,8 +40,9 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -49,8 +56,8 @@ public class MainActivity extends AppCompatActivity {
     private ServiceConnection mConnection;
     private MyLocationService locationService;
     private SharedPreferences sharedPreferences;
-    private boolean mBound = false;
     private Pin currentPin;
+    private boolean mBound = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +67,10 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         initProperties();
+        checkGPS();
+        DBHelper dbHelper = new DBHelper(this);
+        MyLocationListener.setDbHelper(dbHelper);
+        loadPinList(dbHelper);
 
         final ServiceConnection mConnection = new ServiceConnection() {
 
@@ -88,6 +99,21 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void checkGPS() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Snackbar.make(findViewById(R.id.nameView), "GPSを許可してアプリを再起動してください", Snackbar.LENGTH_LONG)
+                    .setAction("設定", new View.OnClickListener() {
+
+                        @Override
+                        public void onClick(View v) {
+                            Intent intent = new Intent();
+                            intent.setAction(Settings.ACTION_APPLICATION_SETTINGS);
+                            startActivity(intent);
+                        }
+                    }).show();
+        }
+    }
+
     private void initProperties() {
         locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
@@ -100,21 +126,36 @@ public class MainActivity extends AppCompatActivity {
         Intent i = new Intent(MainActivity.this, MyLocationService.class);
         stopService(i);
         bindService(i, mConnection, Context.BIND_AUTO_CREATE);
+        MyLocationListener myLocationListener = MyLocationService.myLocationListener;
     }
 
     //アクティビティへの文字列表示処理
     private void showLocationData() {
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
+        if (myLocationListener == null) return;
         Date now = myLocationListener.getUpdate();
         if(now == null) return;
-        DateFormat df = new SimpleDateFormat("HH:mm:ss", Locale.JAPAN);
-        df.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
+        DateFormat df = Pin.getDateFormat();
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
-        updateView.setText(String.format("%sGPS稼働", df.format(now)));
+        updateView.setText(myLocationListener.getUpdteText());
         Pin pin = myLocationListener.getCurrentPin();
         if (pin == null) return;
         //次
+        showNextDistance(pin, myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
+        if (pin.equals(currentPin)) return;
+        showPinData(pin);
+
+        //ツイート
+        String url = String.format("https://twitter.com/share?text=%s", pin.getTweet());
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(intent);
+        currentPin = pin;
+    }
+
+    private void showPinData(Pin pin) {
+        DateFormat df = Pin.getDateFormat();
+        //動的に変わらないもの
         TextView nextNameView = (TextView) findViewById(R.id.nextNameView);
         if (pin.getNextNameText().isEmpty()) {
             nextNameView.setText("");
@@ -122,13 +163,12 @@ public class MainActivity extends AppCompatActivity {
             nextNameView.setText(String.format("Next: %s", pin.getNextNameText()));
         }
         TextView nextTargetView = (TextView) findViewById(R.id.nextTargetView);
-        float nextTarget = pin.getNextTargetText(myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
-        if (nextTarget < 0) {
+        String nextTargetText = pin.getNextTargetText();
+        if (nextTargetText.isEmpty()) {
             nextTargetView.setText("");
         } else {
-            nextTargetView.setText(String.format("直線距離で%1$.1fkm", nextTarget));
+            nextTargetView.setText(String.format("%s目標", nextTargetText));
         }
-        if (pin.equals(currentPin)) return;
         //地名
         TextView nameView = (TextView) findViewById(R.id.nameView);
         nameView.setText(pin.getName());
@@ -144,12 +184,16 @@ public class MainActivity extends AppCompatActivity {
         //貯金
         TextView savingView = (TextView) findViewById(R.id.savingView);
         savingView.setText(pin.getSavingText());
+    }
 
-        //ツイート
-        String url = String.format("https://twitter.com/share?text=%s", pin.getTweet());
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-        startActivity(intent);
-        currentPin = pin;
+    private void showNextDistance(Pin pin, double lat, double lon) {
+        TextView nextDistanceView = (TextView) findViewById(R.id.nextTargetView);
+        float nextDistance = pin.getNextDistance(lat, lon);
+        if (nextDistance < 0) {
+            nextDistanceView.setText("");
+        } else {
+            nextDistanceView.setText(String.format("直線距離で%1$.1fkm", nextDistance));
+        }
     }
 
     @Override
@@ -198,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
                 int distance = getSettingsValue(popupView.findViewById(R.id.editDistance));
                 setDistance(distance);
                 //bindService(mConnection); //エラーになるのでいったん頑張らない
-                Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).setAction("Action", null).show();
+                Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).show();
             }
         });
         pop.showAtLocation(findViewById(R.id.nameView), Gravity.CENTER, 0, 0);
@@ -215,7 +259,24 @@ public class MainActivity extends AppCompatActivity {
         try {
             if (requestCode == REQUEST_PICK_GPX && resultCode == RESULT_OK) {
                 Uri uri = data.getData();
-                parseXml(uri);
+                LinkedList<Pin> list = parseXml(uri);
+                if (list.isEmpty()) return;
+                //最初の地点が相対時間の場合、スタート時間を設定する
+                final Pin pin = list.pollLast();
+                if (pin.isAbsTime()) {
+                    setDB(pin);
+                } else {
+                    Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
+                    c.setTime(new Date());
+                    TimePickerDialog timePickerDialog = new TimePickerDialog(this, new TimePickerDialog.OnTimeSetListener() {
+                        @Override
+                        public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
+                            pin.addTargetTime(hourOfDay, minute);
+                            setDB(pin);
+                        }
+                    }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true);
+                    timePickerDialog.show();
+                }
             }
         } catch (UnsupportedEncodingException e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
@@ -232,27 +293,50 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void parseXml(Uri uri) throws IOException, XmlPullParserException {
+    private void setDB(Pin pin) {
+        DBHelper dbHelper = new DBHelper(this);
+        dbHelper.beginTransaction();
+        dbHelper.Clear();
+        insertPins(pin, dbHelper);
+        dbHelper.commit();
+        loadPinList(dbHelper);
+    }
+
+    private void loadPinList(DBHelper dbHelper) {
+        MyLocationListener myLocationListener = MyLocationService.myLocationListener;
+        MyLocationListener.setPinList(dbHelper.selectAll());
+        showLocationData();
+    }
+
+    private void insertPins(Pin pin, DBHelper dbHelper) {
+        if (pin == null) return;
+        dbHelper.insert(pin);
+        insertPins(pin.getNextPin(), dbHelper);
+    }
+
+    private LinkedList<Pin> parseXml(Uri uri) throws IOException, XmlPullParserException {
         InputStream inputStream = getContentResolver().openInputStream(uri);
         String text = convertInputStreamToString(inputStream);
         XmlPullParser parser = Xml.newPullParser();
         parser.setInput(new StringReader(text));
         int eventType = parser.getEventType();
         String s = "";
+        LinkedList<Pin> list = new LinkedList<>();
         while (eventType != XmlPullParser.END_DOCUMENT) {
             switch (eventType) {
                 case XmlPullParser.START_TAG:
-                    break;
-                case XmlPullParser.TEXT:
-                    if (!parser.getText().isEmpty()) {
-                        s = parser.getText();
+                    if (parser.getName().equalsIgnoreCase("wpt")) {
+                        Pin pin = new Pin(parser);
+                        if (pin.isCorrect()) {
+                            pin.setNextPin(list.peekLast());
+                            list.add(pin);
+                        }
                     }
-                    break;
-                case XmlPullParser.END_TAG:
                     break;
             }
             eventType = parser.next();
         }
+        return list;
     }
 
     private static String convertInputStreamToString(InputStream is) throws IOException {

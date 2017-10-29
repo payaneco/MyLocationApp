@@ -33,20 +33,13 @@ public class MyLocationService extends Service {
     public IBinder onBind(Intent intent) {
         long interval = MainActivity.getInterval();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return mBinder;
         }
 
         if(myLocationListener == null) {
             myLocationListener = new MyLocationListener();
         }
-        MainActivity.locationManager.requestLocationUpdates(locationManager.GPS_PROVIDER, interval, 0, myLocationListener);
+        MainActivity.locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, interval, 0, myLocationListener);
         return mBinder;
     }
 
