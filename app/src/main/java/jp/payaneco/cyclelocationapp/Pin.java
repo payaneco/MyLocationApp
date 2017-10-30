@@ -146,6 +146,7 @@ public class Pin {
     }
 
     public String getSavingText() {
+        if (arrivalTime == null) return "";
         Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
         c.setTime(arrivalTime);
         int saving = (hour - c.get(Calendar.HOUR_OF_DAY)) * 60;
@@ -164,13 +165,18 @@ public class Pin {
     }
 
     public String getTweet() {
-        StringBuilder sb = new StringBuilder();
-        DateFormat df = getDateFormat();
-        sb.append(String.format("%sに%2$.1fkm地点の", df.format(arrivalTime), distance)).append(name).append("周辺に到着しました。\r\n");
-        sb.append(getTargetText()).append("が到達目標時刻です。").append("\r\n");
-        sb.append(getSavingText()).append("！").append("\r\n");
-        sb.append(String.format("http://maps.google.com/maps?q=%1$.4f,%2$.4f", latitude, longitude));
-        return sb.toString();
+        try {
+            StringBuilder sb = new StringBuilder();
+            DateFormat df = getDateFormat();
+            sb.append(String.format("%sに%2$.1fkm地点の", df.format(arrivalTime), distance)).append(name).append("周辺に到着しました。\r\n");
+            sb.append(getTargetText()).append("が到達目標時刻です。").append("\r\n");
+            sb.append(getSavingText()).append("！").append("\r\n");
+            sb.append(String.format("http://maps.google.com/maps?q=%1$.4f,%2$.4f", latitude, longitude));
+            return sb.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 
     public Pin getNextPin() {

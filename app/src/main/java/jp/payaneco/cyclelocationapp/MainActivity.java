@@ -139,18 +139,20 @@ public class MainActivity extends AppCompatActivity {
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
         updateView.setText(myLocationListener.getUpdteText());
-        Pin pin = myLocationListener.getCurrentPin();
+        Pin pin = currentPin;
         if (pin == null) return;
         //次
         showNextDistance(pin, myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
+        currentPin = myLocationListener.getCurrentPin();
         if (pin.equals(currentPin)) return;
         showPinData(pin);
 
         //ツイート
-        String url = String.format("https://twitter.com/share?text=%s", pin.getTweet());
+        String tweet = pin.getTweet();
+        if (tweet.isEmpty()) return;
+        String url = String.format("https://twitter.com/share?text=%s", tweet);
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         startActivity(intent);
-        currentPin = pin;
     }
 
     private void showPinData(Pin pin) {
@@ -176,8 +178,10 @@ public class MainActivity extends AppCompatActivity {
         TextView distanceView = (TextView) findViewById(R.id.distanceView);
         distanceView.setText(String.format("%1$.1fkm走破", pin.getDistance()));
         //時点
-        TextView currentView = (TextView) findViewById(R.id.currentView);
-        currentView.setText(String.format("%s到着", df.format(pin.getArrivalTime())));
+        if (pin.getArrivalTime() != null) {
+            TextView currentView = (TextView) findViewById(R.id.currentView);
+            currentView.setText(String.format("%s到着", df.format(pin.getArrivalTime())));
+        }
         //目標
         TextView targetView = (TextView) findViewById(R.id.targetView);
         targetView.setText(String.format("%s目標", pin.getTargetText()));

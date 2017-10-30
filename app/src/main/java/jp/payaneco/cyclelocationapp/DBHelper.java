@@ -44,7 +44,11 @@ public class DBHelper extends SQLiteOpenHelper {
     }
 
     public void setArrived(Pin pin) {
-        getDb().execSQL(UPDATE_ARRIVED, new Object[]{pin.getArrivalTime(), pin.isArrived(), pin.getId()});
+        try {
+            getDb().execSQL(UPDATE_ARRIVED, new Object[]{pin.getArrivalTime(), pin.isArrived(), pin.getId()});
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

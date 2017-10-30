@@ -30,6 +30,7 @@ public class MyLocationListener implements LocationListener {
         currentLatitude = location.getLatitude();
         currentLongitude = location.getLongitude();
         update = new Date();
+        if (currentPin == null) return;
         if (currentPin.isInPlace(location.getLatitude(), location.getLongitude(), distance)) {
             setArrived();
         }
@@ -37,11 +38,11 @@ public class MyLocationListener implements LocationListener {
 
     private void setArrived() {
         currentPin.arrive();
-        setCurrentPin(currentPin.getNextPin());
         if (dbHelper == null) return;
         dbHelper.beginTransaction();
         dbHelper.setArrived(currentPin);
         dbHelper.commit();
+        setCurrentPin(currentPin.getNextPin());
     }
 
     @Override
