@@ -5,8 +5,8 @@ import android.location.LocationListener;
 import android.os.Bundle;
 
 import java.text.DateFormat;
-import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedList;
 
 /**
  * Created by payaneco on 2017/10/15.
@@ -16,13 +16,9 @@ public class MyLocationListener implements LocationListener {
     private Date update;            //GPSの最終更新日時
     private double currentLatitude;
     private double currentLongitude;
-    private static ArrayList<Pin> pinList;
+    private static LinkedList<Pin> pinList;
     private static Pin currentPin;         //最後に表示したピン
     private static DBHelper dbHelper;
-
-    public MyLocationListener() {
-        setPinList(new ArrayList<Pin>());
-    }
 
     @Override
     public void onLocationChanged(Location location) {
@@ -30,19 +26,20 @@ public class MyLocationListener implements LocationListener {
         currentLatitude = location.getLatitude();
         currentLongitude = location.getLongitude();
         update = new Date();
-        if (currentPin == null) return;
-        if (currentPin.isInPlace(location.getLatitude(), location.getLongitude(), distance)) {
-            setArrived();
+        Pin pin = getNextPin();
+        if (pin == null) return;
+        if (pin.isInPlace(location.getLatitude(), location.getLongitude(), distance)) {
+            setArrived(pin);
         }
     }
 
-    private void setArrived() {
-        currentPin.arrive();
+    private void setArrived(Pin pin) {
+        pin.arrive();
         if (dbHelper == null) return;
         dbHelper.beginTransaction();
-        dbHelper.setArrived(currentPin);
+        dbHelper.setArrived(pin);
         dbHelper.commit();
-        setCurrentPin(currentPin.getNextPin());
+        setCurrentPin(pin);
     }
 
     @Override
@@ -68,6 +65,11 @@ public class MyLocationListener implements LocationListener {
         return currentPin;
     }
 
+    public Pin getNextPin() {
+        if (currentPin == null) return getPinList().peekFirst();
+        return currentPin.getNextPin();
+    }
+
     public double getCurrentLatitude() {
         return currentLatitude;
     }
@@ -76,19 +78,21 @@ public class MyLocationListener implements LocationListener {
         return currentLongitude;
     }
 
-    public ArrayList<Pin> getPinList() {
+    public LinkedList<Pin> getPinList() {
+        if (pinList == null) {
+            pinList = new LinkedList<>();
+        }
         return pinList;
     }
 
-    public static void setPinList(ArrayList<Pin> list) {
+    public static void setPinList(LinkedList<Pin> list) {
         pinList = list;
         //currentPinを設定
         setCurrentPin(null);
         for (Pin pin : pinList) {
-            //最初に見つかった未着のピンを選択
-            if (!pin.isArrived()) {
+            //最後に見つかった既着のピンを選択
+            if (pin.isArrived()) {
                 setCurrentPin(pin);
-                break;
             }
         }
     }

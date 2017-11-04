@@ -63,14 +63,14 @@
             android:textSize="24sp" />
 
         <TextView
-            android:id="@+id/nextDistanceView"
+            android:id="@+id/nextTargetView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textSize="24sp" />
 
         <TextView
-            android:id="@+id/nextTargetView"
+            android:id="@+id/nextDistanceView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"

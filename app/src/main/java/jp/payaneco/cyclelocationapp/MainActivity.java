@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         checkGPS();
         DBHelper dbHelper = new DBHelper(this);
         MyLocationListener.setDbHelper(dbHelper);
-        loadPinList(dbHelper);
+        showInitView(loadPinList(dbHelper));
 
         final ServiceConnection mConnection = new ServiceConnection() {
 
@@ -94,9 +94,17 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                showLocationData();
+                showLocationData(false);
             }
         });
+    }
+
+    private void showInitView(int count) {
+        boolean isEmpty = (count == 0);
+        TextView nameView = (TextView) findViewById(R.id.nameView);
+        nameView.setText(isEmpty ? "メニューからGPX選択" : "GPSの動く頃に");
+        TextView distanceView = (TextView) findViewById(R.id.distanceView);
+        distanceView.setText(isEmpty ? "" : "右下のボタンを押下");
     }
 
     private void checkGPS() {
@@ -127,10 +135,11 @@ public class MainActivity extends AppCompatActivity {
         stopService(i);
         bindService(i, mConnection, Context.BIND_AUTO_CREATE);
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
+        showLocationData(true);
     }
 
     //アクティビティへの文字列表示処理
-    private void showLocationData() {
+    private void showLocationData(boolean isInitializing) {
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
         if (myLocationListener == null) return;
         Date now = myLocationListener.getUpdate();
@@ -139,14 +148,20 @@ public class MainActivity extends AppCompatActivity {
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
         updateView.setText(myLocationListener.getUpdteText());
-        Pin pin = currentPin;
-        if (pin == null) return;
+        Pin pin = myLocationListener.getCurrentPin();
         //次
-        showNextDistance(pin, myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
-        currentPin = myLocationListener.getCurrentPin();
+        showNextPinData(myLocationListener.getNextPin(), myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
+        if (pin == null) {
+            TextView nameView = (TextView) findViewById(R.id.nameView);
+            nameView.setText("気をつけてね");
+            TextView distanceView = (TextView) findViewById(R.id.distanceView);
+            distanceView.setText("いってらっしゃい！");
+            return;
+        }
         if (pin.equals(currentPin)) return;
+        currentPin = pin;
         showPinData(pin);
-
+        if (isInitializing || !pin.isTweet()) return;
         //ツイート
         String tweet = pin.getTweet();
         if (tweet.isEmpty()) return;
@@ -157,20 +172,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void showPinData(Pin pin) {
         DateFormat df = Pin.getDateFormat();
-        //動的に変わらないもの
-        TextView nextNameView = (TextView) findViewById(R.id.nextNameView);
-        if (pin.getNextNameText().isEmpty()) {
-            nextNameView.setText("");
-        } else {
-            nextNameView.setText(String.format("Next: %s", pin.getNextNameText()));
-        }
-        TextView nextTargetView = (TextView) findViewById(R.id.nextTargetView);
-        String nextTargetText = pin.getNextTargetText();
-        if (nextTargetText.isEmpty()) {
-            nextTargetView.setText("");
-        } else {
-            nextTargetView.setText(String.format("%s目標", nextTargetText));
-        }
         //地名
         TextView nameView = (TextView) findViewById(R.id.nameView);
         nameView.setText(pin.getName());
@@ -178,9 +179,11 @@ public class MainActivity extends AppCompatActivity {
         TextView distanceView = (TextView) findViewById(R.id.distanceView);
         distanceView.setText(String.format("%1$.1fkm走破", pin.getDistance()));
         //時点
+        TextView currentView = (TextView) findViewById(R.id.currentView);
         if (pin.getArrivalTime() != null) {
-            TextView currentView = (TextView) findViewById(R.id.currentView);
             currentView.setText(String.format("%s到着", df.format(pin.getArrivalTime())));
+        } else {
+            currentView.setText("到着時刻取得失敗");
         }
         //目標
         TextView targetView = (TextView) findViewById(R.id.targetView);
@@ -190,10 +193,31 @@ public class MainActivity extends AppCompatActivity {
         savingView.setText(pin.getSavingText());
     }
 
+    private void showNextPinData(Pin pin, double currentLatitude, double currentLongitude) {
+        if (pin == null) {
+            pin = new Pin();    //ダミーのピンを設定
+        }
+        boolean isGoal = (currentPin != null);
+        showNextDistance(pin, currentLatitude, currentLongitude);
+        TextView nextNameView = (TextView) findViewById(R.id.nextNameView);
+        if (pin.getName().isEmpty()) {
+            nextNameView.setText(isGoal ? "おつかれさま！" : "");
+        } else {
+            nextNameView.setText(String.format("Next: %s", pin.getName()));
+        }
+        TextView nextTargetView = (TextView) findViewById(R.id.nextTargetView);
+        String nextTargetText = pin.getTargetText();
+        if (nextTargetText.isEmpty()) {
+            nextTargetView.setText("");
+        } else {
+            nextTargetView.setText(String.format("%s目標", nextTargetText));
+        }
+    }
+
     private void showNextDistance(Pin pin, double lat, double lon) {
-        TextView nextDistanceView = (TextView) findViewById(R.id.nextTargetView);
-        float nextDistance = pin.getNextDistance(lat, lon);
-        if (nextDistance < 0) {
+        TextView nextDistanceView = (TextView) findViewById(R.id.nextDistanceView);
+        float nextDistance = pin.getDistance(lat, lon);
+        if (Float.isNaN(nextDistance)) {
             nextDistanceView.setText("");
         } else {
             nextDistanceView.setText(String.format("直線距離で%1$.1fkm", nextDistance));
@@ -306,10 +330,12 @@ public class MainActivity extends AppCompatActivity {
         loadPinList(dbHelper);
     }
 
-    private void loadPinList(DBHelper dbHelper) {
+    private int loadPinList(DBHelper dbHelper) {
+        currentPin = null;
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
-        MyLocationListener.setPinList(dbHelper.selectAll());
-        showLocationData();
+        LinkedList<Pin> list = dbHelper.selectAll();
+        MyLocationListener.setPinList(list);
+        return list.size();
     }
 
     private void insertPins(Pin pin, DBHelper dbHelper) {

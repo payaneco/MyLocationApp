@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">キャノボGPS</string>
+    <string name="app_name">TweetGPinS</string>
     <string name="action_settings">Settings</string>
     <string name="action_gpx">GPX読み込み</string>
     <string name="button_start">計測開始！</string>

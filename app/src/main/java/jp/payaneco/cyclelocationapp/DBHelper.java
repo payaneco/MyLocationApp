@@ -5,7 +5,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 
 /**
  * Created by 884 on 2017/10/28.
@@ -45,7 +45,7 @@ public class DBHelper extends SQLiteOpenHelper {
 
     public void setArrived(Pin pin) {
         try {
-            getDb().execSQL(UPDATE_ARRIVED, new Object[]{pin.getArrivalTime(), pin.isArrived(), pin.getId()});
+            getDb().execSQL(UPDATE_ARRIVED, new Object[]{pin.getArrivalText(), pin.isArrived(), pin.getId()});
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -78,14 +78,15 @@ public class DBHelper extends SQLiteOpenHelper {
         return db;
     }
 
-    public ArrayList<Pin> selectAll() {
+    public LinkedList<Pin> selectAll() {
         String[] cols = {"lc_id", "lc_lat, lc_lon, lc_name, lc_cmt, lc_target_time, lc_distance, lc_tweet, lc_arrival_time, lc_passed"};
-        Cursor c = getDb().query("location", cols, null, null, null, null, null);
-        ArrayList<Pin> list = new ArrayList<>();
+        Cursor c = getDb().query("location", cols, null, null, null, null, "lc_id DESC");
+        LinkedList<Pin> list = new LinkedList<>();
         while (c.moveToNext()) {
             Pin pin = new Pin(c);
             if (pin.isCorrect()) {
-                list.add(pin);
+                pin.setNextPin(list.peek());
+                list.addFirst(pin);
             }
         }
         return list;

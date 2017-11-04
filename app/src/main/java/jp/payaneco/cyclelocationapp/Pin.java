@@ -42,7 +42,7 @@ public class Pin {
     private Pin nextPin;
     private String errMsg;
 
-    private Pin() {
+    public Pin() {
         name = "";
         errMsg = "";
         distance = Double.NaN;
@@ -79,6 +79,7 @@ public class Pin {
     public Pin(Cursor c) {
         this();
         try {
+            id = c.getInt(c.getColumnIndex("lc_id"));
             latitude = c.getDouble(c.getColumnIndex("lc_lat"));
             longitude = c.getDouble(c.getColumnIndex("lc_lon"));
             name = c.getString(c.getColumnIndex("lc_name"));
@@ -86,10 +87,9 @@ public class Pin {
             setTargetTime(c.getString(c.getColumnIndex("lc_target_time")));
             distance = c.getDouble(c.getColumnIndex("lc_distance"));
             absDistance = true;
-            tweet = c.getString(c.getColumnIndex("lc_tweet")).equalsIgnoreCase("true");
+            tweet = (c.getInt(c.getColumnIndex("lc_tweet")) == 1);
             setArrivalTime(c.getString(c.getColumnIndex("lc_arrival_time")));
-            String s = c.getString(c.getColumnIndex("lc_passed"));
-            arrived = (s != null && s.equalsIgnoreCase("true"));
+            arrived = (c.getInt(c.getColumnIndex("lc_passed")) == 1);
         } catch (Exception e) {
             errMsg = e.getMessage();
         }
@@ -142,6 +142,7 @@ public class Pin {
     }
 
     public String getTargetText() {
+        if (!isCorrect()) return "";
         return String.format("%02d:%02d", hour, minute);
     }
 
@@ -196,28 +197,10 @@ public class Pin {
         this.nextPin = nextPin;
     }
 
-    public String getNextNameText() {
-        if (nextPin == null) {
-            return "";
-        }
-        return nextPin.getName();
-    }
-
-    public String getNextTargetText() {
-        if (nextPin == null) {
-            return "";
-        }
-        return nextPin.getTargetText();
-    }
-
-    public float getNextDistance(double nextLatitude, double nextLongitude) {
-        if (nextPin == null) {
-            return Float.MIN_VALUE;
-        }
-        double pLatitude = nextPin.latitude;
-        double pLongitude = nextPin.longitude;
+    public float getDistance(double pLatitude, double pLongitude) {
+        if (!isCorrect()) return Float.NaN;
         float[] results = new float[3];
-        Location.distanceBetween(pLatitude, pLongitude, nextLatitude, nextLongitude, results);
+        Location.distanceBetween(pLatitude, pLongitude, latitude, longitude, results);
         return results[0] / 1000f;
     }
 
