@@ -22,13 +22,21 @@ public class MyLocationListener implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
-        int distance = MainActivity.getDistance();
+        setLocation(location);
+        checkArrived();
+    }
+
+    public void setLocation(Location location) {
         currentLatitude = location.getLatitude();
         currentLongitude = location.getLongitude();
         update = new Date();
+    }
+
+    public void checkArrived() {
+        int distance = MainActivity.getDistance();
         Pin pin = getNextPin();
         if (pin == null) return;
-        if (pin.isInPlace(location.getLatitude(), location.getLongitude(), distance)) {
+        if (pin.isInPlace(currentLatitude, currentLongitude, distance)) {
             setArrived(pin);
         }
     }

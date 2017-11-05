@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
                 MyLocationService.LocalBinder binder = (MyLocationService.LocalBinder) service;
                 locationService = binder.getService();
                 mBound = true;
+                showLocationData(true);
             }
 
             @Override
@@ -123,10 +124,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initProperties() {
-        locationManager = (LocationManager)getSystemService(LOCATION_SERVICE);
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        interval = sharedPreferences.getInt("INTERVAL", 60);
-        distance = sharedPreferences.getInt("DISTANCE", 500);
+        interval = sharedPreferences.getInt("INTERVAL", 30);
+        distance = sharedPreferences.getInt("DISTANCE", 300);
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
     }
 
     private void bindService(ServiceConnection mConnection) {
@@ -135,7 +136,6 @@ public class MainActivity extends AppCompatActivity {
         stopService(i);
         bindService(i, mConnection, Context.BIND_AUTO_CREATE);
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
-        showLocationData(true);
     }
 
     //アクティビティへの文字列表示処理
@@ -152,10 +152,7 @@ public class MainActivity extends AppCompatActivity {
         //次
         showNextPinData(myLocationListener.getNextPin(), myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
         if (pin == null) {
-            TextView nameView = (TextView) findViewById(R.id.nameView);
-            nameView.setText("気をつけてね");
-            TextView distanceView = (TextView) findViewById(R.id.distanceView);
-            distanceView.setText("いってらっしゃい！");
+            showStartView();
             return;
         }
         if (pin.equals(currentPin)) return;
@@ -168,6 +165,19 @@ public class MainActivity extends AppCompatActivity {
         String url = String.format("https://twitter.com/share?text=%s", tweet);
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         startActivity(intent);
+    }
+
+    private void showStartView() {
+        TextView nameView = (TextView) findViewById(R.id.nameView);
+        nameView.setText("気をつけてね");
+        TextView distanceView = (TextView) findViewById(R.id.distanceView);
+        distanceView.setText("いってらっしゃい！");
+        TextView currentView = (TextView) findViewById(R.id.currentView);
+        currentView.setText("");
+        TextView targetView = (TextView) findViewById(R.id.targetView);
+        targetView.setText("");
+        TextView savingView = (TextView) findViewById(R.id.savingView);
+        savingView.setText("");
     }
 
     private void showPinData(Pin pin) {
@@ -327,12 +337,13 @@ public class MainActivity extends AppCompatActivity {
         dbHelper.Clear();
         insertPins(pin, dbHelper);
         dbHelper.commit();
-        loadPinList(dbHelper);
+        showInitView(loadPinList(dbHelper));
+        locationService.setLastKnownLocation();
+        showLocationData(true);
     }
 
     private int loadPinList(DBHelper dbHelper) {
         currentPin = null;
-        MyLocationListener myLocationListener = MyLocationService.myLocationListener;
         LinkedList<Pin> list = dbHelper.selectAll();
         MyLocationListener.setPinList(list);
         return list.size();
