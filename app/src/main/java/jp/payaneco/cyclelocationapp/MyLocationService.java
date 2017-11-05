@@ -57,6 +57,7 @@ public class MyLocationService extends Service {
             return;
         }
         final Location location = locationManager.getLastKnownLocation(locationManager.getBestProvider(criteria, true));
+        if (location == null) return;
         //10分以内に位置情報が取得されていれば有効なデータとして扱う
         long diff = new Date().getTime() - location.getTime();
         if (location != null && (diff) <= (10 * 60 * 1000L)) {

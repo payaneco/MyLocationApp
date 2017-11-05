@@ -95,28 +95,36 @@ public class Pin {
         }
     }
 
-    private void setArrivalTime(String inputTime) {
-        if (inputTime == null || inputTime.isEmpty()) {
-            arrivalTime = null;
-            return;
-        }
-        DateFormat df = getDateFormat(DB_DATE_TEMPLATE);
-        try {
-            this.arrivalTime = df.parse(inputTime);
-        } catch (ParseException e) {
-            arrivalTime = null;
-            e.printStackTrace();
-        }
+    public static DateFormat getDateFormat() {
+        return getDateFormat("HH:mm:ss");
+    }
+
+    public static DateFormat getDateFormat(String template) {
+        DateFormat df = new SimpleDateFormat(template, Locale.JAPAN);
+        df.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
+        return df;
+    }
+
+    public static Pin getSample() {
+        return getSample(true);
+    }
+
+    private static Pin getSample(boolean isStart) {
+        Pin pin = new Pin();
+        pin.setSampleValues(isStart);
+        return pin;
     }
 
     public boolean isArrived() {
         return arrived;
     }
 
-    public void arrive() {
+    public void arrive(boolean isSkip) {
         if (isArrived()) return;
         arrived = true;
-        arrivalTime = new Date();
+        if (!isSkip) {
+            arrivalTime = new Date();
+        }
     }
 
     public boolean isInPlace(double pLatitude, double pLongitude, int pDistance) {
@@ -129,12 +137,32 @@ public class Pin {
         return latitude;
     }
 
+    public String getLatText() {
+        return String.format("%1$.5f", getLatitude());
+    }
+
     public double getLongitude() {
         return longitude;
     }
 
+    public String getLonText() {
+        return String.format("%1$.5f", getLongitude());
+    }
+
+    public String getURL() {
+        return String.format("http://maps.google.com/maps?q=%s,%s", getLatText(), getLonText());
+    }
+
     public double getDistance() {
         return distance;
+    }
+
+    public String getDistanceText() {
+        return getDistanceText(getDistance());
+    }
+
+    private static String getDistanceText(double distance) {
+        return String.format("%1$.1fkm", distance);
     }
 
     public String getName() {
@@ -152,11 +180,25 @@ public class Pin {
         c.setTime(arrivalTime);
         int saving = (hour - c.get(Calendar.HOUR_OF_DAY)) * 60;
         saving += minute - c.get(Calendar.MINUTE);
-        return String.format("貯金%+d分", saving);
+        return String.format("%+d分", saving);
     }
 
     public Date getArrivalTime() {
         return arrivalTime;
+    }
+
+    private void setArrivalTime(String inputTime) {
+        if (inputTime == null || inputTime.isEmpty()) {
+            arrivalTime = null;
+            return;
+        }
+        DateFormat df = getDateFormat(DB_DATE_TEMPLATE);
+        try {
+            this.arrivalTime = df.parse(inputTime);
+        } catch (ParseException e) {
+            arrivalTime = null;
+            e.printStackTrace();
+        }
     }
 
     public String getArrivalText() {
@@ -165,19 +207,27 @@ public class Pin {
         return df.format(arrivalTime);
     }
 
-    public String getTweet() {
-        try {
-            StringBuilder sb = new StringBuilder();
-            DateFormat df = getDateFormat();
-            sb.append(String.format("%sに%2$.1fkm地点の", df.format(arrivalTime), distance)).append(name).append("周辺に到着しました。\r\n");
-            sb.append(getTargetText()).append("が到達目標時刻です。").append("\r\n");
-            sb.append(getSavingText()).append("！").append("\r\n");
-            sb.append(String.format("http://maps.google.com/maps?q=%1$.4f,%2$.4f", latitude, longitude));
-            return sb.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "";
-        }
+    public String getTweet(String fmtMessage) {
+        String s = fmtMessage;
+        s = s.replace("[地名]", getName());
+        s = s.replace("[総距離]", getDistanceText());
+        s = s.replace("[目標時刻]", getTargetText());
+        s = s.replace("[緯度]", getLatText());
+        s = s.replace("[経度]", getLonText());
+        s = s.replace("[URL]", getURL());
+        String sArrive = (arrivalTime == null) ? "取得失敗" : getDateFormat().format(arrivalTime);
+        s = s.replace("[到着時刻]", sArrive);
+        s = s.replace("[貯金]", getSavingText());
+        boolean isCorrect = (nextPin != null && nextPin.isCorrect());
+        s = s.replace("[次地名]", isCorrect ? nextPin.getName() : "");
+        s = s.replace("[次総距離]", isCorrect ? nextPin.getDistanceText() : "");
+        s = s.replace("[次目標時刻]", isCorrect ? nextPin.getTargetText() : "");
+        s = s.replace("[次緯度]", isCorrect ? nextPin.getLatText() : "");
+        s = s.replace("[次経度]", isCorrect ? nextPin.getLonText() : "");
+        s = s.replace("[次URL]", isCorrect ? nextPin.getURL() : "");
+        String diff = isCorrect ? getDistanceText(nextPin.getDistance() - getDistance()) : "";
+        s = s.replace("[次区間距離]", diff);
+        return s;
     }
 
     public Pin getNextPin() {
@@ -187,14 +237,14 @@ public class Pin {
         return nextPin;
     }
 
+    public void setNextPin(Pin nextPin) {
+        this.nextPin = nextPin;
+    }
+
     private void addDistance(double distance) {
         if (absDistance) return;
         this.distance += distance;
         absDistance = true;
-    }
-
-    public void setNextPin(Pin nextPin) {
-        this.nextPin = nextPin;
     }
 
     public float getDistance(double pLatitude, double pLongitude) {
@@ -206,6 +256,13 @@ public class Pin {
 
     public String getComment() {
         return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+        if (!parseTime(comment)) return;
+        if (!parseDistance(comment)) return;
+        tweet = !QUIET_PATTERN.matcher(comment).find();
     }
 
     public boolean isTweet() {
@@ -223,13 +280,6 @@ public class Pin {
 
     public String getErrMsg() {
         return errMsg;
-    }
-
-    public void setComment(String comment) {
-        this.comment = comment;
-        if (!parseTime(comment)) return;
-        if (!parseDistance(comment)) return;
-        tweet = !QUIET_PATTERN.matcher(comment).find();
     }
 
     private boolean parseTime(String comment) {
@@ -314,13 +364,36 @@ public class Pin {
         absTime = true;
     }
 
-    public static DateFormat getDateFormat() {
-        return getDateFormat("HH:mm:ss");
-    }
-
-    public static DateFormat getDateFormat(String template) {
-        DateFormat df = new SimpleDateFormat(template, Locale.JAPAN);
-        df.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
-        return df;
+    private void setSampleValues(boolean isStart) {
+        if (isStart) {
+            id = 1;
+            arrived = true;
+            arrivalTime = new Date();
+            latitude = 35.68439;
+            longitude = 139.77453;
+            distance = 0;
+            absDistance = true;
+            name = "日本橋";
+            Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
+            c.setTime(arrivalTime);
+            hour = c.get(Calendar.HOUR_OF_DAY);
+            minute = c.get(Calendar.MINUTE);
+            nextPin = getSample(false);
+        } else {
+            id = 2;
+            latitude = 34.69838;
+            longitude = 135.50033;
+            distance = 530.1;
+            name = "梅田新道";
+            Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
+            c.setTime(new Date());
+            c.add(Calendar.MINUTE, -30);
+            hour = c.get(Calendar.HOUR_OF_DAY);
+            minute = c.get(Calendar.MINUTE);
+        }
+        absTime = true;
+        tweet = false;
+        comment = "";
+        errMsg = "";
     }
 }

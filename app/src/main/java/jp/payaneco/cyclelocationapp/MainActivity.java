@@ -26,9 +26,9 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupWindow;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -51,6 +52,10 @@ import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
     private final int REQUEST_PICK_GPX = 12345;
+    private final String DEFAULT_FMT_MESSAGE = "[到着時刻]に[総距離]地点の[地名]周辺に到着しました。\r\n" +
+            "貯金は約[貯金]分！\r\n" +
+            "次の目標は[次区間距離]先の[次地名]に[次目標時刻]です。#♨\r\n" +
+            "[URL]";
 
     public static LocationManager locationManager;
     private static int interval;
@@ -65,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences sharedPreferences;
     private Pin currentPin;
     private boolean mBound = false;
+    private String fmtMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +87,6 @@ public class MainActivity extends AppCompatActivity {
         showInitView(loadPinList(dbHelper));
 
         final ServiceConnection mConnection = new ServiceConnection() {
-
             @Override
             public void onServiceConnected(ComponentName className,
                                            IBinder service) {
@@ -95,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onServiceDisconnected(ComponentName arg0) {
                 mBound = false;
+                unbindService(this);
             }
         };
         bindService(mConnection);
@@ -174,13 +180,13 @@ public class MainActivity extends AppCompatActivity {
         interval = sharedPreferences.getInt("INTERVAL", 30);
         distance = sharedPreferences.getInt("DISTANCE", 300);
         se = sharedPreferences.getInt("SE", 1);
+        fmtMessage = sharedPreferences.getString("MESSAGE", DEFAULT_FMT_MESSAGE);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
     }
 
     private void bindService(ServiceConnection mConnection) {
         //アプリケーションにバインドされたサービス開始
         Intent i = new Intent(MainActivity.this, MyLocationService.class);
-        stopService(i);
         bindService(i, mConnection, Context.BIND_AUTO_CREATE);
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
     }
@@ -207,9 +213,20 @@ public class MainActivity extends AppCompatActivity {
         showPinData(pin);
         if (isInitializing || !pin.isTweet()) return;
         //ツイート
-        String tweet = pin.getTweet();
+        tweet(pin, fmtMessage);
+    }
+
+    private void tweet(Pin pin, String fmt) {
+        String tweet = pin.getTweet(fmt);
         if (tweet.isEmpty()) return;
-        String url = String.format("https://twitter.com/share?text=%s", tweet);
+        String enc = null;
+        try {
+            enc = URLEncoder.encode(tweet, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            enc = String.format("エンコードに失敗しました。%s", e.getMessage());
+            e.printStackTrace();
+        }
+        String url = String.format("https://twitter.com/share?text=%s", enc);
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         startActivity(intent);
     }
@@ -234,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
         nameView.setText(pin.getName());
         //総距離
         TextView distanceView = (TextView) findViewById(R.id.distanceView);
-        distanceView.setText(String.format("%1.1fkm走破", pin.getDistance()));
+        distanceView.setText(pin.getDistanceText());
         //時点
         TextView currentView = (TextView) findViewById(R.id.currentView);
         if (pin.getArrivalTime() != null) {
@@ -247,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
         targetView.setText(String.format("%s目標", pin.getTargetText()));
         //貯金
         TextView savingView = (TextView) findViewById(R.id.savingView);
-        savingView.setText(pin.getSavingText());
+        savingView.setText(String.format("貯金%s", pin.getSavingText()));
     }
 
     private void showNextPinData(Pin pin, double currentLatitude, double currentLongitude) {
@@ -301,9 +318,57 @@ public class MainActivity extends AppCompatActivity {
             return true;
         } else if (id == R.id.action_gpx) {
             loadGpx();
+            return true;
+        } else if (id == R.id.action_message) {
+            showPopupFmtMessage();
+            return true;
+        } else if (id == R.id.action_skip) {
+            MyLocationListener myLocationListener = MyLocationService.myLocationListener;
+            myLocationListener.setArrived(currentPin.getNextPin());
+            showLocationData(true);
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showPopupFmtMessage() {
+        PopupWindow pop = new PopupWindow(this);
+        //レイアウト設定
+        final View popupView = getLayoutInflater().inflate(R.layout.popup_message, null);
+        final EditText editMsgFormat = (EditText) popupView.findViewById(R.id.editMsgFormat);
+        editMsgFormat.setText(fmtMessage);
+        final Button btnTest = (Button) popupView.findViewById(R.id.btnTest);
+        btnTest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Pin pin = currentPin;
+                if (currentPin == null || !currentPin.isCorrect()) {
+                    pin = Pin.getSample();
+                    tweet(pin, editMsgFormat.getText().toString());
+                } else {
+                    tweet(pin, editMsgFormat.getText().toString());
+                }
+            }
+        });
+        final Button btnRevert = (Button) popupView.findViewById(R.id.btnRevert);
+        btnRevert.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                editMsgFormat.setText(fmtMessage);
+            }
+        });
+        pop.setContentView(popupView);
+        //タップ時に他のViewでキャッチされないための設定
+        pop.setOutsideTouchable(true);
+        pop.setFocusable(true);
+        //画面閉じたら設定保存
+        pop.setOnDismissListener(new PopupWindow.OnDismissListener() {
+            @Override
+            public void onDismiss() {
+                setFmtMessage((EditText) popupView.findViewById(R.id.editMsgFormat));
+            }
+        });
+        pop.showAtLocation(findViewById(R.id.nameView), Gravity.CENTER, 0, 0);
     }
 
     private void showPopupSettings() {
@@ -314,8 +379,11 @@ public class MainActivity extends AppCompatActivity {
         editInterval.setText(String.valueOf(interval));
         final EditText editDistance = (EditText)popupView.findViewById(R.id.editDistance);
         editDistance.setText(String.valueOf(distance));
-        final Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
-        spinnerSe.setSelection(se);
+        //final Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
+        //spinnerSe.setSelection(se);
+        //実機だとスピナーが動かなかったので仕方なく
+        final EditText editSe = (EditText) popupView.findViewById(R.id.editSe);
+        editSe.setText(String.valueOf(se));
         pop.setContentView(popupView);
         //タップ時に他のViewでキャッチされないための設定
         pop.setOutsideTouchable(true);
@@ -328,8 +396,10 @@ public class MainActivity extends AppCompatActivity {
                 setInterval(interval);
                 int distance = getSettingsValue(popupView.findViewById(R.id.editDistance));
                 setDistance(distance);
-                Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
-                setSe(spinnerSe.getSelectedItemPosition());
+                //Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
+                //setSe(spinnerSe.getSelectedItemPosition());
+                int se = getSettingsValue(popupView.findViewById(R.id.editSe));
+                setSe(se);
                 Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).show();
             }
         });
@@ -489,10 +559,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setSe(int se) {
+        if (se < 0 || 3 < se) return;
         MainActivity.se = se;
         loadSoundPool();
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt("SE", se);
+        editor.apply();
+    }
+
+    public String getFmtMessage() {
+        return fmtMessage;
+    }
+
+    private void setFmtMessage(EditText editText) {
+        String value = editText.getText().toString();
+        fmtMessage = value;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString("MESSAGE", fmtMessage);
         editor.apply();
     }
 }

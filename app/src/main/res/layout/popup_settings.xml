@@ -38,9 +38,10 @@
         android:text="到着時の効果音"
         android:textAppearance="@android:style/TextAppearance.Material.Medium" />
 
-    <Spinner
-        android:id="@+id/spinnerSe"
+    <EditText
+        android:id="@+id/editSe"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:entries="@array/se_array" />
+        android:ems="10"
+        android:inputType="number" />
 </LinearLayout>

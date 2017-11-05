@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="置換文字:[地名][総距離][目標時刻][緯度][経度][URL][到着時刻][貯金][次地名][次総距離][次目標時刻][次緯度][次経度][次URL][次区間距離]"
+        android:textAppearance="@android:style/TextAppearance.Material.Small" />
+
+    <EditText
+        android:id="@+id/editMsgFormat"
+        android:inputType="textMultiLine"
+        android:lines="6"
+        android:gravity="top|left"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:scrollbars="vertical" />
+
+    <Button
+        android:id="@+id/btnTest"
+        android:text="テスト"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:id="@+id/btnRevert"
+        android:text="編集前に戻す"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+</LinearLayout>

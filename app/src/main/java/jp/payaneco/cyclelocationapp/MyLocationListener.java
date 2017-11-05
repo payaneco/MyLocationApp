@@ -37,13 +37,18 @@ public class MyLocationListener implements LocationListener {
         Pin pin = getNextPin();
         if (pin == null) return;
         if (pin.isInPlace(currentLatitude, currentLongitude, distance)) {
-            setArrived(pin);
+            setArrived(pin, false);
             MainActivity.playSe();
         }
     }
 
-    private void setArrived(Pin pin) {
-        pin.arrive();
+    public void setArrived(Pin pin) {
+        setArrived(pin, true);
+    }
+
+    private void setArrived(Pin pin, boolean isSkip) {
+        if (pin == null) return;
+        pin.arrive(isSkip);
         if (dbHelper == null) return;
         dbHelper.beginTransaction();
         dbHelper.setArrived(pin);
