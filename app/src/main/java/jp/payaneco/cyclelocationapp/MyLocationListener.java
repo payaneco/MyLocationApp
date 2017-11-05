@@ -38,6 +38,7 @@ public class MyLocationListener implements LocationListener {
         if (pin == null) return;
         if (pin.isInPlace(currentLatitude, currentLongitude, distance)) {
             setArrived(pin);
+            MainActivity.playSe();
         }
     }
 

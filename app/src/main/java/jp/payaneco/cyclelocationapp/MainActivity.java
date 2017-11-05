@@ -9,6 +9,8 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.media.AudioAttributes;
+import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -26,6 +28,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.PopupWindow;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
@@ -47,11 +50,15 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
-    private final int REQUEST_PICK_GPX = 1;
+    private final int REQUEST_PICK_GPX = 12345;
 
     public static LocationManager locationManager;
     private static int interval;
     private static int distance;
+    private static int se;
+    private static SoundPool soundPool;
+    private static int soundId;
+    private static boolean isSoundLoaded;
 
     private ServiceConnection mConnection;
     private MyLocationService locationService;
@@ -67,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         initProperties();
+        loadSoundPool();
         checkGPS();
         DBHelper dbHelper = new DBHelper(this);
         MyLocationListener.setDbHelper(dbHelper);
@@ -100,6 +108,44 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void loadSoundPool() {
+        if (soundPool == null) {
+            initSoundPool();
+        } else if (isSoundLoaded) {
+            soundPool.unload(soundId);
+        }
+        isSoundLoaded = false;
+        switch (se) {
+            case 1:
+                soundId = soundPool.load(this, R.raw.sysse, 1);
+                break;
+            case 2:
+                soundId = soundPool.load(this, R.raw.pan, 1);
+                break;
+            case 3:
+                soundId = soundPool.load(this, R.raw.mes, 1);
+                break;
+        }
+    }
+
+    private void initSoundPool() {
+        AudioAttributes attr = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build();
+        int seCount = getResources().obtainTypedArray(R.array.se_array).length() - 1;
+        soundPool = new SoundPool.Builder()
+                .setAudioAttributes(attr)
+                .setMaxStreams(seCount)
+                .build();
+        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+                isSoundLoaded = (status == 0);
+            }
+        });
+    }
+
     private void showInitView(int count) {
         boolean isEmpty = (count == 0);
         TextView nameView = (TextView) findViewById(R.id.nameView);
@@ -127,6 +173,7 @@ public class MainActivity extends AppCompatActivity {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         interval = sharedPreferences.getInt("INTERVAL", 30);
         distance = sharedPreferences.getInt("DISTANCE", 300);
+        se = sharedPreferences.getInt("SE", 1);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
     }
 
@@ -169,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showStartView() {
         TextView nameView = (TextView) findViewById(R.id.nameView);
-        nameView.setText("気をつけてね");
+        nameView.setText("お気をつけて");
         TextView distanceView = (TextView) findViewById(R.id.distanceView);
         distanceView.setText("いってらっしゃい！");
         TextView currentView = (TextView) findViewById(R.id.currentView);
@@ -187,7 +234,7 @@ public class MainActivity extends AppCompatActivity {
         nameView.setText(pin.getName());
         //総距離
         TextView distanceView = (TextView) findViewById(R.id.distanceView);
-        distanceView.setText(String.format("%1$.1fkm走破", pin.getDistance()));
+        distanceView.setText(String.format("%1.1fkm走破", pin.getDistance()));
         //時点
         TextView currentView = (TextView) findViewById(R.id.currentView);
         if (pin.getArrivalTime() != null) {
@@ -211,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
         showNextDistance(pin, currentLatitude, currentLongitude);
         TextView nextNameView = (TextView) findViewById(R.id.nextNameView);
         if (pin.getName().isEmpty()) {
-            nextNameView.setText(isGoal ? "おつかれさま！" : "");
+            nextNameView.setText(isGoal ? "おつかれさまでした！" : "");
         } else {
             nextNameView.setText(String.format("Next: %s", pin.getName()));
         }
@@ -267,6 +314,8 @@ public class MainActivity extends AppCompatActivity {
         editInterval.setText(String.valueOf(interval));
         final EditText editDistance = (EditText)popupView.findViewById(R.id.editDistance);
         editDistance.setText(String.valueOf(distance));
+        final Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
+        spinnerSe.setSelection(se);
         pop.setContentView(popupView);
         //タップ時に他のViewでキャッチされないための設定
         pop.setOutsideTouchable(true);
@@ -279,7 +328,8 @@ public class MainActivity extends AppCompatActivity {
                 setInterval(interval);
                 int distance = getSettingsValue(popupView.findViewById(R.id.editDistance));
                 setDistance(distance);
-                //bindService(mConnection); //エラーになるのでいったん頑張らない
+                Spinner spinnerSe = (Spinner) popupView.findViewById(R.id.spinnerSe);
+                setSe(spinnerSe.getSelectedItemPosition());
                 Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).show();
             }
         });
@@ -413,7 +463,7 @@ public class MainActivity extends AppCompatActivity {
         return interval;
     }
 
-    public void setInterval(int interval) {
+    private void setInterval(int interval) {
         if(interval <= 0) return;
         MainActivity.interval = interval;
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -425,11 +475,24 @@ public class MainActivity extends AppCompatActivity {
         return distance;
     }
 
-    public void setDistance(int distance) {
+    private void setDistance(int distance) {
         if(distance <= 0) return;
         MainActivity.distance = distance;
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt("DISTANCE", distance);
+        editor.apply();
+    }
+
+    public static void playSe() {
+        if (!isSoundLoaded) return;
+        soundPool.play(soundId, 1f, 1f, 1, 0, 1f);
+    }
+
+    private void setSe(int se) {
+        MainActivity.se = se;
+        loadSoundPool();
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt("SE", se);
         editor.apply();
     }
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="se_array">
+        <item>効果音なし</item>
+        <item>システム音</item>
+        <item>ぱんぱかぱーん</item>
+        <item>メッセージが届きました</item>
+    </string-array>
+</resources>
