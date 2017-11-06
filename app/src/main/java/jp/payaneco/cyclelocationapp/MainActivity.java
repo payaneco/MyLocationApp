@@ -14,6 +14,7 @@ import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Vibrator;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
@@ -61,9 +62,11 @@ public class MainActivity extends AppCompatActivity {
     private static int interval;
     private static int distance;
     private static int se;
+    private static int vibe;
     private static SoundPool soundPool;
     private static int soundId;
     private static boolean isSoundLoaded;
+    private static Vibrator vibrator;
 
     private ServiceConnection mConnection;
     private MyLocationService locationService;
@@ -85,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
         DBHelper dbHelper = new DBHelper(this);
         MyLocationListener.setDbHelper(dbHelper);
         showInitView(loadPinList(dbHelper));
+        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
         final ServiceConnection mConnection = new ServiceConnection() {
             @Override
@@ -180,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
         interval = sharedPreferences.getInt("INTERVAL", 30);
         distance = sharedPreferences.getInt("DISTANCE", 300);
         se = sharedPreferences.getInt("SE", 1);
+        vibe = sharedPreferences.getInt("VIBE", 3000);
         fmtMessage = sharedPreferences.getString("MESSAGE", DEFAULT_FMT_MESSAGE);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
     }
@@ -200,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
         DateFormat df = Pin.getDateFormat();
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);
-        updateView.setText(myLocationListener.getUpdteText());
+        updateView.setText(myLocationListener.getUpdateText());
         Pin pin = myLocationListener.getCurrentPin();
         //次
         showNextPinData(myLocationListener.getNextPin(), myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude());
@@ -324,7 +329,8 @@ public class MainActivity extends AppCompatActivity {
             return true;
         } else if (id == R.id.action_skip) {
             MyLocationListener myLocationListener = MyLocationService.myLocationListener;
-            myLocationListener.setArrived(currentPin.getNextPin());
+            Pin pin = myLocationListener.getNextPin();
+            myLocationListener.setArrived(pin);
             showLocationData(true);
         }
 
@@ -384,6 +390,8 @@ public class MainActivity extends AppCompatActivity {
         //実機だとスピナーが動かなかったので仕方なく
         final EditText editSe = (EditText) popupView.findViewById(R.id.editSe);
         editSe.setText(String.valueOf(se));
+        final EditText editVibe = (EditText) popupView.findViewById(R.id.editVibe);
+        editVibe.setText(String.valueOf(vibe));
         pop.setContentView(popupView);
         //タップ時に他のViewでキャッチされないための設定
         pop.setOutsideTouchable(true);
@@ -400,6 +408,8 @@ public class MainActivity extends AppCompatActivity {
                 //setSe(spinnerSe.getSelectedItemPosition());
                 int se = getSettingsValue(popupView.findViewById(R.id.editSe));
                 setSe(se);
+                int vibe = getSettingsValue(popupView.findViewById(R.id.editVibe));
+                setVibe(vibe);
                 Snackbar.make(findViewById(R.id.nameView), "設定変更後はアプリを再起動してください", Snackbar.LENGTH_LONG).show();
             }
         });
@@ -567,6 +577,14 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
+    public void setVibe(int vibe) {
+        if (vibe < 0 || 10000 < vibe) return;
+        MainActivity.vibe = vibe;
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt("VIBE", vibe);
+        editor.apply();
+    }
+
     public String getFmtMessage() {
         return fmtMessage;
     }
@@ -577,5 +595,11 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("MESSAGE", fmtMessage);
         editor.apply();
+    }
+
+    public static void vibrate() {
+        if (vibe < 0) return;
+        if (vibrator == null) return;
+        vibrator.vibrate(vibe);
     }
 }

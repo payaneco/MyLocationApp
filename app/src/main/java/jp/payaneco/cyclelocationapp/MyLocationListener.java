@@ -39,6 +39,7 @@ public class MyLocationListener implements LocationListener {
         if (pin.isInPlace(currentLatitude, currentLongitude, distance)) {
             setArrived(pin, false);
             MainActivity.playSe();
+            MainActivity.vibrate();
         }
     }
 
@@ -115,7 +116,7 @@ public class MyLocationListener implements LocationListener {
         currentPin = pin;
     }
 
-    public String getUpdteText() {
+    public String getUpdateText() {
         DateFormat df = Pin.getDateFormat();
         if (pinList == null) {
             return "";

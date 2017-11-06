@@ -209,6 +209,7 @@ public class Pin {
 
     public String getTweet(String fmtMessage) {
         String s = fmtMessage;
+        s = s.replace("[HP]", "http://www.payaneco.jp/tagspa/");
         s = s.replace("[地名]", getName());
         s = s.replace("[総距離]", getDistanceText());
         s = s.replace("[目標時刻]", getTargetText());
