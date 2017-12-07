@@ -54,8 +54,8 @@ import java.util.TimeZone;
 public class MainActivity extends AppCompatActivity {
     private final int REQUEST_PICK_GPX = 12345;
     private final String DEFAULT_FMT_MESSAGE = "[到着時刻]に[総距離]地点の[地名]周辺に到着しました。\r\n" +
-            "貯金は約[貯金]分！\r\n" +
-            "次の目標は[次区間距離]先の[次地名]に[次目標時刻]です。#♨\r\n" +
+            "貯金は約[貯金]！\r\n" +
+            "次の目標は[次区間距離]先の[次地名]に[次目標時刻]です。\r\n#タグすぱ\r\n" +
             "[URL]";
 
     public static LocationManager locationManager;
@@ -116,6 +116,29 @@ public class MainActivity extends AppCompatActivity {
                 showLocationData(false);
             }
         });
+
+        FloatingActionButton map = (FloatingActionButton) findViewById(R.id.map);
+        map.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showMap();
+            }
+        });
+    }
+
+    private void showMap() {
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setClassName("com.google.android.apps.maps", "com.google.android.maps.MapsActivity");
+        MyLocationListener myLocationListener = MyLocationService.myLocationListener;
+        if (myLocationListener == null || currentPin == null) return;
+        Pin pin = currentPin.getNextPin();
+        if (pin == null) return;
+        String fmt = "http://maps.google.com/maps?saddr=%f,%f&daddr=%f,%f&dirflg=w";
+        String url = String.format(fmt, myLocationListener.getCurrentLatitude(), myLocationListener.getCurrentLongitude(),
+                pin.getLatitude(), pin.getLongitude());
+        intent.setData(Uri.parse(url));
+        startActivity(intent);
     }
 
     private void loadSoundPool() {
@@ -199,9 +222,15 @@ public class MainActivity extends AppCompatActivity {
     //アクティビティへの文字列表示処理
     private void showLocationData(boolean isInitializing) {
         MyLocationListener myLocationListener = MyLocationService.myLocationListener;
-        if (myLocationListener == null) return;
+        if (myLocationListener == null) {
+            Toast.makeText(this, "GPS取得失敗", Toast.LENGTH_SHORT);
+            return;
+        }
         Date now = myLocationListener.getUpdate();
-        if(now == null) return;
+        if (now == null) {
+            Toast.makeText(this, "GPS更新失敗", Toast.LENGTH_SHORT);
+            return;
+        }
         DateFormat df = Pin.getDateFormat();
         //更新日時
         TextView updateView = (TextView) findViewById(R.id.updateView);

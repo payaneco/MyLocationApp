@@ -13,15 +13,15 @@ import java.util.LinkedList;
 
 public class DBHelper extends SQLiteOpenHelper {
     static final String DB_NAME = "cycle_location_app.db";
-    static final int DB_VERSION = 1;
+    static final int DB_VERSION = 2;
     static final String CREATE_LOCATION = "create table location ( " +
             "lc_id INTEGER PRIMARY KEY AUTOINCREMENT, lc_lat REAL, lc_lon REAL, " +
-            "lc_name TEXT, lc_cmt TEXT, lc_target_time TEXT, lc_distance INTEGER, " +
+            "lc_name TEXT, lc_desc TEXT, lc_cmt TEXT, lc_target_time TEXT, lc_distance INTEGER, " +
             "lc_tweet TEXT, lc_arrival_time TEXT, lc_passed TEXT);";
     static final String DROP_LOCATION = "drop table location;";
     static final String TRUNCATE_LOCATION = "delete from location;";
     static final String INIT_LOCATION_INDEX = "delete from sqlite_sequence where name='location';";
-    static final String INSERT_LOCATION = "insert into location values(null, ?, ?," +
+    static final String INSERT_LOCATION = "insert into location values(null, ?, ?, ?," +
             " ?, ?, ?, ?, ?, null, null);";
     static final String UPDATE_ARRIVED = "update location set " +
             "lc_arrival_time = ?, lc_passed = ? " +
@@ -40,7 +40,7 @@ public class DBHelper extends SQLiteOpenHelper {
 
     public void insert(Pin pin) {
         getDb().execSQL(INSERT_LOCATION, new Object[]{pin.getLatitude(), pin.getLongitude(), pin.getName(),
-                pin.getComment(), pin.getTargetText(), pin.getDistance(), pin.isTweet()});
+                pin.getDescription(), pin.getComment(), pin.getTargetText(), pin.getDistance(), pin.isTweet()});
     }
 
     public void setArrived(Pin pin) {
@@ -79,7 +79,7 @@ public class DBHelper extends SQLiteOpenHelper {
     }
 
     public LinkedList<Pin> selectAll() {
-        String[] cols = {"lc_id", "lc_lat, lc_lon, lc_name, lc_cmt, lc_target_time, lc_distance, lc_tweet, lc_arrival_time, lc_passed"};
+        String[] cols = {"lc_id", "lc_lat, lc_lon, lc_name, lc_desc, lc_cmt, lc_target_time, lc_distance, lc_tweet, lc_arrival_time, lc_passed"};
         Cursor c = getDb().query("location", cols, null, null, null, null, "lc_id DESC");
         LinkedList<Pin> list = new LinkedList<>();
         while (c.moveToNext()) {

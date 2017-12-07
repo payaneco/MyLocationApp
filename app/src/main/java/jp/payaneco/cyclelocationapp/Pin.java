@@ -34,6 +34,7 @@ public class Pin {
     private double distance;
     private boolean absDistance;
     private String name;
+    private String description;
     private int hour;
     private int minute;
     private boolean absTime;
@@ -61,6 +62,8 @@ public class Pin {
                         parser.next();
                         if (tag.equalsIgnoreCase("name")) {
                             name = parser.getText();
+                        } else if (tag.equalsIgnoreCase("desc")) {
+                            setDescription(parser.getText());
                         } else if (tag.equalsIgnoreCase("cmt")) {
                             setComment(parser.getText());
                         }
@@ -83,6 +86,7 @@ public class Pin {
             latitude = c.getDouble(c.getColumnIndex("lc_lat"));
             longitude = c.getDouble(c.getColumnIndex("lc_lon"));
             name = c.getString(c.getColumnIndex("lc_name"));
+            description = c.getString(c.getColumnIndex("lc_desc"));
             comment = c.getString(c.getColumnIndex("lc_cmt"));
             setTargetTime(c.getString(c.getColumnIndex("lc_target_time")));
             distance = c.getDouble(c.getColumnIndex("lc_distance"));
@@ -211,6 +215,7 @@ public class Pin {
         String s = fmtMessage;
         s = s.replace("[HP]", "http://www.payaneco.jp/tagspa/");
         s = s.replace("[地名]", getName());
+        s = s.replace("[説明]", getDescription());
         s = s.replace("[総距離]", getDistanceText());
         s = s.replace("[目標時刻]", getTargetText());
         s = s.replace("[緯度]", getLatText());
@@ -264,6 +269,10 @@ public class Pin {
         if (!parseTime(comment)) return;
         if (!parseDistance(comment)) return;
         tweet = !QUIET_PATTERN.matcher(comment).find();
+    }
+
+    private void setDescription(String desc) {
+        description = desc.replace("\\n", "\r\n");
     }
 
     public boolean isTweet() {
@@ -375,6 +384,7 @@ public class Pin {
             distance = 0;
             absDistance = true;
             name = "日本橋";
+            description = "これは説明文です";
             Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
             c.setTime(arrivalTime);
             hour = c.get(Calendar.HOUR_OF_DAY);
@@ -386,6 +396,7 @@ public class Pin {
             longitude = 135.50033;
             distance = 530.1;
             name = "梅田新道";
+            description = "説明文は\\nで改行できます";
             Calendar c = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN);
             c.setTime(new Date());
             c.add(Calendar.MINUTE, -30);
@@ -396,5 +407,10 @@ public class Pin {
         tweet = false;
         comment = "";
         errMsg = "";
+    }
+
+    public String getDescription() {
+        if (description == null) return "";
+        return description;
     }
 }
